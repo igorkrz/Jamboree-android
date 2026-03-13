@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">Jamboree</string>
     <string name="loading">Loading...</string>
+    <string name="upcoming_events">Upcoming Events</string>
+    <string name="event_name">Event name</string>
+    <string name="date">Date</string>
+    <string name="venue">Venue</string>
+    <string name="price">Price</string>
+    <string name="provider">Provider</string>
 </resources>
