@@ -10,20 +10,28 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.jamboree.R;
 import com.example.jamboree.data.repository.EventRepository;
-import com.example.jamboree.model.Event;
-
-import java.util.List;
+import com.example.jamboree.model.EventPage;
 
 public class EventsFragment extends Fragment {
 
+    private RecyclerView eventsRecyclerView;
     private ProgressBar progressBar;
+    private ProgressBar loadMoreProgressBar;
     private TextView errorTextView;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     private EventAdapter eventAdapter;
+    private LinearLayoutManager layoutManager;
     private final EventRepository eventRepository = new EventRepository();
+
+    private boolean isLoading = false;
+    private Integer currentPage = 1;
+    private Integer nextPage = null;
+    private Integer lastPage = null;
 
     public EventsFragment() {
         super(R.layout.fragment_events);
@@ -33,42 +41,147 @@ public class EventsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        RecyclerView eventsRecyclerView = view.findViewById(R.id.eventsRecyclerView);
+        eventsRecyclerView = view.findViewById(R.id.eventsRecyclerView);
         progressBar = view.findViewById(R.id.progressBar);
+        loadMoreProgressBar = view.findViewById(R.id.loadMoreProgressBar);
         errorTextView = view.findViewById(R.id.errorTextView);
+        swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
 
         eventAdapter = new EventAdapter();
-        eventsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        layoutManager = new LinearLayoutManager(requireContext());
+
+        eventsRecyclerView.setLayoutManager(layoutManager);
         eventsRecyclerView.setAdapter(eventAdapter);
 
-        loadEvents();
-    }
+        swipeRefreshLayout.setOnRefreshListener(this::refreshEvents);
 
-    private void loadEvents() {
-        progressBar.setVisibility(View.VISIBLE);
-        errorTextView.setVisibility(View.GONE);
+        eventsRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
 
-        new Thread(() -> {
-            try {
-                List<Event> events = eventRepository.getUpcomingEvents(1);
-
-                if (!isAdded()) {
+                if (dy <= 0) {
                     return;
                 }
 
-                requireActivity().runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
-                    eventAdapter.setEvents(events);
-                });
+                int visibleItemCount = layoutManager.getChildCount();
+                int totalItemCount = layoutManager.getItemCount();
+                int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
 
-            } catch (Exception e) {
-                requireActivity().runOnUiThread(() -> {
+                boolean reachedThreshold = (visibleItemCount + firstVisibleItemPosition) >= (totalItemCount - 4);
+
+                if (!isLoading && nextPage != null && reachedThreshold) {
+                    loadNextPage();
+                }
+            }
+        });
+
+        loadFirstPage();
+    }
+
+    private void loadFirstPage() {
+        resetPagingState();
+        showInitialLoading();
+
+        loadEventsPage(1, true);
+    }
+
+    private void refreshEvents() {
+        if (isLoading) {
+            swipeRefreshLayout.setRefreshing(false);
+            return;
+        }
+
+        resetPagingState();
+        errorTextView.setVisibility(View.GONE);
+        loadEventsPage(1, true);
+    }
+
+    private void loadNextPage() {
+        if (isLoading || nextPage == null) {
+            return;
+        }
+
+        loadMoreProgressBar.setVisibility(View.VISIBLE);
+        loadEventsPage(nextPage, false);
+    }
+
+    private void resetPagingState() {
+        currentPage = 1;
+        nextPage = null;
+        lastPage = null;
+    }
+
+    private void loadEventsPage(int page, boolean isRefresh) {
+        isLoading = true;
+
+        new Thread(() -> {
+            try {
+                EventPage eventPage = eventRepository.getUpcomingEvents(page);
+
+                postToUi(() -> {
+                    isLoading = false;
                     progressBar.setVisibility(View.GONE);
-                    errorTextView.setVisibility(View.VISIBLE);
-                    errorTextView.setText(String.format("Error: %s", e.getMessage()));
+                    loadMoreProgressBar.setVisibility(View.GONE);
+                    swipeRefreshLayout.setRefreshing(false);
+                    errorTextView.setVisibility(View.GONE);
+                    eventsRecyclerView.setVisibility(View.VISIBLE);
+
+                    currentPage = page;
+                    nextPage = eventPage.getNextPage();
+                    lastPage = eventPage.getLastPage();
+
+                    if (isRefresh) {
+                        eventAdapter.replaceEvents(eventPage.getEvents());
+                        eventsRecyclerView.scrollToPosition(0);
+                    } else {
+                        eventAdapter.appendEvents(eventPage.getEvents());
+                    }
+                });
+            } catch (Exception e) {
+                postToUi(() -> {
+                    isLoading = false;
+                    progressBar.setVisibility(View.GONE);
+                    loadMoreProgressBar.setVisibility(View.GONE);
+                    swipeRefreshLayout.setRefreshing(false);
+
+                    if (eventAdapter.getItemCount() == 0) {
+                        showError("Error: " + e.getMessage());
+                    }
+
                 });
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    private void showInitialLoading() {
+        progressBar.setVisibility(View.VISIBLE);
+        loadMoreProgressBar.setVisibility(View.GONE);
+        errorTextView.setVisibility(View.GONE);
+        eventsRecyclerView.setVisibility(View.GONE);
+        swipeRefreshLayout.setRefreshing(false);
+    }
+
+    private void showError(String message) {
+        progressBar.setVisibility(View.GONE);
+        loadMoreProgressBar.setVisibility(View.GONE);
+        swipeRefreshLayout.setRefreshing(false);
+        eventsRecyclerView.setVisibility(View.GONE);
+        errorTextView.setVisibility(View.VISIBLE);
+        errorTextView.setText(message);
+    }
+
+    private void postToUi(Runnable action) {
+        if (!isAdded()) {
+            return;
+        }
+
+        requireActivity().runOnUiThread(() -> {
+            if (!isAdded()) {
+                return;
+            }
+            action.run();
+        });
     }
 }

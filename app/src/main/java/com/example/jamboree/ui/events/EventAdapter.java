@@ -5,7 +5,6 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -17,17 +16,26 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
 
     private final List<Event> events = new ArrayList<>();
 
-    public void setEvents(List<Event> newEvents) {
-        DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new EventDiffCallback(events, newEvents));
+    public void replaceEvents(List<Event> newEvents) {
         events.clear();
         events.addAll(newEvents);
-        diffResult.dispatchUpdatesTo(this);
+        notifyDataSetChanged();
+    }
+
+    public void appendEvents(List<Event> newEvents) {
+        int startPosition = events.size();
+        events.addAll(newEvents);
+        notifyItemRangeInserted(startPosition, newEvents.size());
+    }
+
+    public void clearEvents() {
+        events.clear();
+        notifyDataSetChanged();
     }
 
     @NonNull
@@ -92,49 +100,6 @@ public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
             return dateTime.format(formatter);
         } catch (Exception e) {
             return rawDate;
-        }
-    }
-
-    private static class EventDiffCallback extends DiffUtil.Callback {
-        private final List<Event> oldList;
-        private final List<Event> newList;
-
-        EventDiffCallback(List<Event> oldList, List<Event> newList) {
-            this.oldList = oldList;
-            this.newList = newList;
-        }
-
-        @Override
-        public int getOldListSize() {
-            return oldList.size();
-        }
-
-        @Override
-        public int getNewListSize() {
-            return newList.size();
-        }
-
-        @Override
-        public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
-            return Objects.equals(
-                oldList.get(oldItemPosition).getId(),
-                newList.get(newItemPosition).getId()
-            );
-        }
-
-        @Override
-        public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
-            Event oldItem = oldList.get(oldItemPosition);
-            Event newItem = newList.get(newItemPosition);
-
-            return Objects.equals(oldItem.getId(), newItem.getId()) &&
-                Objects.equals(oldItem.getName(), newItem.getName()) &&
-                Objects.equals(oldItem.getHoldingDate(), newItem.getHoldingDate()) &&
-                Objects.equals(oldItem.getVenue(), newItem.getVenue()) &&
-                Objects.equals(oldItem.getCity(), newItem.getCity()) &&
-                Objects.equals(oldItem.getPrice(), newItem.getPrice()) &&
-                Objects.equals(oldItem.getProviderName(), newItem.getProviderName()) &&
-                Objects.equals(oldItem.getImageUrl(), newItem.getImageUrl());
         }
     }
 }
