@@ -8,8 +8,10 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 public class ApiClient {
 
@@ -17,11 +19,42 @@ public class ApiClient {
     private static final String BASE_URL = "http://10.0.2.2/api/";
 
     public ApiResponse get(String endpoint) throws Exception {
+        return request("GET", endpoint, null, null);
+    }
+
+    public ApiResponse get(String endpoint, String accessToken) throws Exception {
+        return request("GET", endpoint, null, accessToken);
+    }
+
+    public ApiResponse postJson(String endpoint, JSONObject body) throws Exception {
+        return request("POST", endpoint, body, null);
+    }
+
+    public ApiResponse postJson(String endpoint, JSONObject body, String accessToken) throws Exception {
+        return request("POST", endpoint, body, accessToken);
+    }
+
+    public ApiResponse request(String method, String endpoint, JSONObject body, String accessToken) throws Exception {
         URL url = new URL(BASE_URL + endpoint);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-        connection.setRequestMethod("GET");
+        connection.setRequestMethod(method);
         connection.setRequestProperty("Accept", "application/json+ld, application/json");
+
+        if (body != null) {
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+
+            byte[] output = body.toString().getBytes(StandardCharsets.UTF_8);
+            OutputStream os = connection.getOutputStream();
+            os.write(output);
+            os.flush();
+            os.close();
+        }
+
+        if (accessToken != null && !accessToken.isEmpty()) {
+            connection.setRequestProperty("Authorization", "Bearer " + accessToken);
+        }
 
         int responseCode = connection.getResponseCode();
 
@@ -39,7 +72,7 @@ public class ApiClient {
 
         reader.close();
 
-        String body = response.toString().trim();
+        String bodyText = response.toString().trim();
         String contentType = connection.getHeaderField("Content-Type");
 
         Log.d(TAG, "URL: " + url);
@@ -48,15 +81,15 @@ public class ApiClient {
         Log.d(TAG, "Response body:\n" + response);
 
         if (contentType != null && contentType.contains("application/ld+json")) {
-            return new ApiResponse(new JSONObject(body), contentType, responseCode);
+            return new ApiResponse(new JSONObject(bodyText), contentType, responseCode);
         }
 
         if (contentType != null && contentType.contains("application/json")) {
-            if (body.startsWith("[")) {
-                return new ApiResponse(new JSONArray(body), contentType, responseCode);
+            if (bodyText.startsWith("[")) {
+                return new ApiResponse(new JSONArray(bodyText), contentType, responseCode);
             }
 
-            return new ApiResponse(new JSONObject(body), contentType, responseCode);
+            return new ApiResponse(new JSONObject(bodyText), contentType, responseCode);
         }
 
         throw new Exception("Unsupported response type: " + contentType);
