@@ -2,7 +2,6 @@ package com.example.jamboree.data.remote;
 
 import android.util.Log;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -39,7 +38,7 @@ public class ApiClient {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         connection.setRequestMethod(method);
-        connection.setRequestProperty("Accept", "application/json+ld, application/json");
+        connection.setRequestProperty("Accept", "application/json+ld");
 
         if (body != null) {
             connection.setDoOutput(true);
@@ -80,18 +79,10 @@ public class ApiClient {
         Log.d(TAG, "Content-Type: " + contentType);
         Log.d(TAG, "Response body:\n" + response);
 
-        if (contentType != null && contentType.contains("application/ld+json")) {
+        if (contentType != null && contentType.contains("application/json+ld")) {
             return new ApiResponse(new JSONObject(bodyText), contentType, responseCode);
         }
 
-        if (contentType != null && contentType.contains("application/json")) {
-            if (bodyText.startsWith("[")) {
-                return new ApiResponse(new JSONArray(bodyText), contentType, responseCode);
-            }
-
-            return new ApiResponse(new JSONObject(bodyText), contentType, responseCode);
-        }
-
-        throw new Exception("Unsupported response type: " + contentType);
+        throw new Exception("Expected JSON-LD but got: " + contentType);
     }
 }
