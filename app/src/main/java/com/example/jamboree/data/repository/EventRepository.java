@@ -6,12 +6,12 @@ import com.example.jamboree.data.remote.ApiResponse;
 import com.example.jamboree.model.EventPage;
 
 public class EventRepository {
-
+    private static final String EVENT_ENDPOINT = "events";
     private final ApiClient apiClient = new ApiClient();
     private final EventParser eventParser = new EventParser();
 
     public EventPage getUpcomingEvents(int page) throws Exception {
-        String endpoint = "events?page=" + page + "&holdingDate%5Bafter%5D=today";
+        String endpoint = EVENT_ENDPOINT + "?page=" + page + "&holdingDate%5Bafter%5D=today";
         ApiResponse response = apiClient.get(endpoint);
 
         if (!response.isObject()) {
@@ -19,6 +19,5 @@ public class EventRepository {
         }
 
         return eventParser.parseEventPageFromCollection(response.getObject());
-
     }
 }

@@ -25,7 +25,6 @@ public class UserEventsFragment extends Fragment {
 
     private LinearLayout contentLayout;
     private LinearLayout loginRequiredLayout;
-    private Button loginButton;
 
     private RecyclerView eventsRecyclerView;
     private ProgressBar progressBar;
@@ -53,7 +52,7 @@ public class UserEventsFragment extends Fragment {
 
         contentLayout = view.findViewById(R.id.contentLayout);
         loginRequiredLayout = view.findViewById(R.id.loginRequiredLayout);
-        loginButton = view.findViewById(R.id.loginButton);
+        Button loginButton = view.findViewById(R.id.loginButton);
 
         eventsRecyclerView = view.findViewById(R.id.eventsRecyclerView);
         progressBar = view.findViewById(R.id.progressBar);

@@ -10,7 +10,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 
 public class ApiClient {
 
@@ -40,49 +39,52 @@ public class ApiClient {
         connection.setRequestMethod(method);
         connection.setRequestProperty("Accept", "application/json+ld");
 
-        if (body != null) {
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json");
-
-            byte[] output = body.toString().getBytes(StandardCharsets.UTF_8);
-            OutputStream os = connection.getOutputStream();
-            os.write(output);
-            os.flush();
-            os.close();
-        }
-
         if (accessToken != null && !accessToken.isEmpty()) {
             connection.setRequestProperty("Authorization", "Bearer " + accessToken);
         }
 
+        if (body != null) {
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+            byte[] output = body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            try (OutputStream os = connection.getOutputStream()) {
+                os.write(output);
+                os.flush();
+            }
+        }
+
         int responseCode = connection.getResponseCode();
+        String contentType = connection.getContentType();
 
         InputStream stream = responseCode >= 200 && responseCode < 300
                 ? connection.getInputStream()
                 : connection.getErrorStream();
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+        String bodyText = "";
 
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
+        if (stream != null) {
+            StringBuilder responseBuilder = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    responseBuilder.append(line);
+                }
+            }
+            bodyText = responseBuilder.toString().trim();
         }
 
-        reader.close();
-
-        String bodyText = response.toString().trim();
-        String contentType = connection.getHeaderField("Content-Type");
+        connection.disconnect();
 
         Log.d(TAG, "URL: " + url);
         Log.d(TAG, "HTTP code: " + responseCode);
         Log.d(TAG, "Content-Type: " + contentType);
-        Log.d(TAG, "Response body:\n" + response);
+        Log.d(TAG, "Response body:\n" + bodyText);
 
-        if (contentType != null && contentType.contains("application/json+ld")) {
-            return new ApiResponse(new JSONObject(bodyText), contentType, responseCode);
+        if (!contentType.contains("application/json")) {
+            throw new Exception("Expected JSON-LD but got: " + contentType);
         }
 
-        throw new Exception("Expected JSON-LD but got: " + contentType);
+        return new ApiResponse(new JSONObject(bodyText), contentType, responseCode);
     }
 }

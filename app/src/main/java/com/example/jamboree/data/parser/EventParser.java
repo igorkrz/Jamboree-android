@@ -49,23 +49,25 @@ public class EventParser {
     }
 
     public Event parseEvent(JSONObject item) {
-        String id = item.optString("id", "");
-        String name = item.optString("name", "Unnamed event");
-        String description = item.optString("description", "");
-        String price = item.optString("price", "");
-        String url = item.optString("url", "");
-        String imageUrl = item.optString("imageUrl", "");
-        String holdingDate = item.optString("holdingDate", "");
+        JSONObject eventObject = unwrapEventObject(item);
+
+        String id = eventObject.optString("id", "");
+        String name = eventObject.optString("name", "Unnamed event");
+        String description = eventObject.optString("description", "");
+        String price = eventObject.optString("price", "");
+        String url = eventObject.optString("url", "");
+        String imageUrl = eventObject.optString("imageUrl", "");
+        String holdingDate = eventObject.optString("holdingDate", "");
 
         String providerName = "";
-        JSONObject provider = item.optJSONObject("provider");
+        JSONObject provider = eventObject.optJSONObject("provider");
         if (provider != null) {
             providerName = provider.optString("name", "");
         }
 
         String venue = "";
         String city = "";
-        JSONObject location = item.optJSONObject("location");
+        JSONObject location = eventObject.optJSONObject("location");
         if (location != null) {
             venue = cleanText(location.optString("venue", ""));
             city = cleanText(location.optString("city", ""));
@@ -83,6 +85,19 @@ public class EventParser {
             venue,
             city
         );
+    }
+
+    private JSONObject unwrapEventObject(JSONObject item) {
+        if (item == null) {
+            return new JSONObject();
+        }
+
+        JSONObject nestedEvent = item.optJSONObject("event");
+        if (nestedEvent != null) {
+            return nestedEvent;
+        }
+
+        return item;
     }
 
     public Integer extractPageNumber(String url) {

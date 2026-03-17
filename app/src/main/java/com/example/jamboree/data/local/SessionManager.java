@@ -8,9 +8,10 @@ import androidx.security.crypto.MasterKey;
 
 public class SessionManager {
     private static final String PREF_NAME = "jamboree_session";
-    private static final String KEY_ACCESS_TOKEN = "access_token";
-    private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_USER = "user";
+    private static final String KEY_USERNAME = "username";
+    private static final String KEY_PASSWORD = "password";
+    private static final String KEY_ACCESS_TOKEN = "access_token";
 
     private final SharedPreferences sharedPreferences;
 
@@ -28,11 +29,18 @@ public class SessionManager {
         );
     }
 
-    public void saveSession(String user, String accessToken, String refreshToken) {
+    public void saveSession(String user, String username, String password, String accessToken) {
         sharedPreferences.edit()
             .putString(KEY_USER, user)
+            .putString(KEY_USERNAME, username)
+            .putString(KEY_PASSWORD, password)
             .putString(KEY_ACCESS_TOKEN, accessToken)
-            .putString(KEY_REFRESH_TOKEN, refreshToken)
+            .apply();
+    }
+
+    public void updateAccessToken(String accessToken) {
+        sharedPreferences.edit()
+            .putString(KEY_ACCESS_TOKEN, accessToken)
             .apply();
     }
 
@@ -40,12 +48,16 @@ public class SessionManager {
         return sharedPreferences.getString(KEY_USER, null);
     }
 
-    public String getAccessToken() {
-        return sharedPreferences.getString(KEY_ACCESS_TOKEN, null);
+    public String getUsername() {
+        return sharedPreferences.getString(KEY_USERNAME, null);
     }
 
-    public String getRefreshToken() {
-        return sharedPreferences.getString(KEY_REFRESH_TOKEN, null);
+    public String getPassword() {
+        return sharedPreferences.getString(KEY_PASSWORD, null);
+    }
+
+    public String getAccessToken() {
+        return sharedPreferences.getString(KEY_ACCESS_TOKEN, null);
     }
 
     public boolean isLoggedIn() {
