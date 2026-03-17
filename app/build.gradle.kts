@@ -45,4 +45,5 @@ dependencies {
     implementation(libs.navigation.ui)
     implementation(libs.glide)
     implementation(libs.security.crypto)
+    implementation(libs.view)
 }
