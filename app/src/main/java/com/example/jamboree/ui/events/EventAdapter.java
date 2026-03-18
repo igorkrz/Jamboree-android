@@ -15,18 +15,31 @@ import com.example.jamboree.model.Event;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
     public interface OnEventClickListener {
         void onEventClick(Event event);
     }
 
-    private final List<Event> events = new ArrayList<>();
-    private final OnEventClickListener onEventClickListener;
+    public interface OnFavoriteClickListener {
+        void onFavoriteClick(Event event);
+    }
 
-    public EventAdapter(OnEventClickListener onEventClickListener) {
+    private final List<Event> events = new ArrayList<>();
+    private final Map<String, String> favoriteEventMap = new HashMap<>();
+
+    private final OnEventClickListener onEventClickListener;
+    private final OnFavoriteClickListener onFavoriteClickListener;
+
+    public EventAdapter(
+        OnEventClickListener onEventClickListener,
+        OnFavoriteClickListener onFavoriteClickListener
+    ) {
         this.onEventClickListener = onEventClickListener;
+        this.onFavoriteClickListener = onFavoriteClickListener;
     }
 
     public void replaceEvents(List<Event> newEvents) {
@@ -41,8 +54,21 @@ public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
         notifyItemRangeInserted(startPosition, newEvents.size());
     }
 
-    public void clearEvents() {
-        events.clear();
+    public void removeEventById(String eventId) {
+        for (int i = 0; i < events.size(); i++) {
+            if (events.get(i).getId().equals(eventId)) {
+                events.remove(i);
+                notifyItemRemoved(i);
+                return;
+            }
+        }
+    }
+
+    public void setFavoriteEventMap(Map<String, String> favorites) {
+        favoriteEventMap.clear();
+        if (favorites != null) {
+            favoriteEventMap.putAll(favorites);
+        }
         notifyDataSetChanged();
     }
 
@@ -58,14 +84,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
         Event event = events.get(position);
 
-        holder.itemView.setOnClickListener(v -> {
-            if (onEventClickListener != null) {
-                onEventClickListener.onEventClick(event);
-            }
-        });
-
         holder.eventNameTextView.setText(event.getName());
-        holder.eventDateTextView.setText(String.format("Date: %s", formatDate(event.getHoldingDate())));
+        holder.eventDateTextView.setText("Date: " + formatDate(event.getHoldingDate()));
 
         String venueText = event.getVenue();
         if (!event.getCity().isEmpty()) {
@@ -83,10 +103,9 @@ public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
             event.getPrice().isEmpty() ? "Price: -" : "Price: " + event.getPrice() + " EUR"
         );
 
-        holder.eventProviderTextView.setText(
-            event.getProviderName().isEmpty()
-                ? "Provider: -"
-                : "Provider: " + event.getProviderName()
+        holder.eventProviderTextView.setText(event.getProviderName().isEmpty()
+            ? "Provider: -"
+            : "Provider: " + event.getProviderName()
         );
 
         Glide.with(holder.itemView.getContext())
@@ -98,6 +117,29 @@ public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
             .error(R.drawable.placeholder_event)
             .transition(DrawableTransitionOptions.withCrossFade())
             .into(holder.eventImageView);
+
+        holder.itemView.setOnClickListener(v -> {
+            if (onEventClickListener != null) {
+                onEventClickListener.onEventClick(event);
+            }
+        });
+
+        if (holder.favoriteButton != null) {
+            holder.favoriteButton.setVisibility(View.VISIBLE);
+
+            boolean isFavorite = favoriteEventMap.containsKey(event.getId());
+
+            holder.favoriteButton.setImageResource(isFavorite
+                ? R.drawable.ic_heart_filled
+                : R.drawable.ic_heart_outline
+            );
+
+            holder.favoriteButton.setOnClickListener(v -> {
+                if (onFavoriteClickListener != null) {
+                    onFavoriteClickListener.onFavoriteClick(event);
+                }
+            });
+        }
     }
 
     @Override

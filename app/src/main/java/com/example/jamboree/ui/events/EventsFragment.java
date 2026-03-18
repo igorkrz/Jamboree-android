@@ -13,11 +13,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.jamboree.R;
+import com.example.jamboree.data.controller.FavoriteEventsController;
 import com.example.jamboree.data.repository.EventRepository;
+import com.example.jamboree.model.Event;
 import com.example.jamboree.model.EventPage;
 
 public class EventsFragment extends Fragment {
-
     private RecyclerView eventsRecyclerView;
     private ProgressBar progressBar;
     private ProgressBar loadMoreProgressBar;
@@ -27,6 +28,7 @@ public class EventsFragment extends Fragment {
     private EventAdapter eventAdapter;
     private LinearLayoutManager layoutManager;
     private final EventRepository eventRepository = new EventRepository();
+    private FavoriteEventsController favoriteEventsController;
 
     private boolean isLoading = false;
     private Integer currentPage = 1;
@@ -41,21 +43,32 @@ public class EventsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        try {
+            favoriteEventsController = new FavoriteEventsController(requireContext());
+        } catch (Exception e) {
+            showError("Failed to initialize favorites: " + e.getMessage());
+            return;
+        }
+
         eventsRecyclerView = view.findViewById(R.id.eventsRecyclerView);
         progressBar = view.findViewById(R.id.progressBar);
         loadMoreProgressBar = view.findViewById(R.id.loadMoreProgressBar);
         errorTextView = view.findViewById(R.id.errorTextView);
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
 
-        eventAdapter = new EventAdapter(event -> {
-            androidx.navigation.NavController navController =
-                androidx.navigation.fragment.NavHostFragment.findNavController(this);
+        eventAdapter = new EventAdapter(
+            event -> {
+                androidx.navigation.NavController navController =
+                        androidx.navigation.fragment.NavHostFragment.findNavController(this);
 
-            navController.navigate(
-                R.id.eventDetailsFragment,
-                EventDetailsFragment.createArgs(event.getId())
-            );
-        });
+                navController.navigate(
+                        R.id.eventDetailsFragment,
+                        EventDetailsFragment.createArgs(event.getId())
+                );
+            },
+            this::toggleFavorite
+        );
+
         layoutManager = new LinearLayoutManager(requireContext());
 
         eventsRecyclerView.setLayoutManager(layoutManager);
@@ -145,6 +158,8 @@ public class EventsFragment extends Fragment {
                     } else {
                         eventAdapter.appendEvents(eventPage.getEvents());
                     }
+
+                    loadFavoriteStateIfLoggedIn();
                 });
             } catch (Exception e) {
                 postToUi(() -> {
@@ -161,6 +176,76 @@ public class EventsFragment extends Fragment {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    private void loadFavoriteStateIfLoggedIn() {
+        favoriteEventsController.loadFavoritesAsync(new FavoriteEventsController.FavoriteStateListener() {
+            @Override
+            public void onFavoritesLoaded(java.util.Map<String, String> favoriteEventMap) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> eventAdapter.setFavoriteEventMap(favoriteEventMap));
+            }
+
+            @Override
+            public void onFavoriteAdded(String eventId, String userEventId) {
+            }
+
+            @Override
+            public void onFavoriteRemoved(String eventId) {
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+
+            @Override
+            public void onAuthenticationRequired() {
+            }
+        });
+    }
+
+    private void toggleFavorite(Event event) {
+        favoriteEventsController.toggleFavoriteAsync(
+            event,
+            true,
+            new FavoriteEventsController.FavoriteStateListener() {
+                @Override
+                public void onFavoritesLoaded(java.util.Map<String, String> favoriteEventMap) {
+                }
+
+                @Override
+                public void onFavoriteAdded(String eventId, String userEventId) {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() ->
+                        eventAdapter.setFavoriteEventMap(favoriteEventsController.getFavoriteEventMap())
+                    );
+                }
+
+                @Override
+                public void onFavoriteRemoved(String eventId) {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() ->
+                        eventAdapter.setFavoriteEventMap(favoriteEventsController.getFavoriteEventMap())
+                    );
+                }
+
+                @Override
+                public void onError(String message) {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() -> showError(message));
+                }
+
+                @Override
+                public void onAuthenticationRequired() {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() -> {
+                        androidx.navigation.NavController navController =
+                                androidx.navigation.fragment.NavHostFragment.findNavController(EventsFragment.this);
+                        navController.navigate(R.id.loginFragment);
+                    });
+                }
+            }
+        );
     }
 
     private void showInitialLoading() {

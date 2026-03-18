@@ -16,14 +16,15 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.jamboree.R;
+import com.example.jamboree.data.controller.FavoriteEventsController;
 import com.example.jamboree.data.local.SessionManager;
 import com.example.jamboree.data.repository.UserEventRepository;
+import com.example.jamboree.model.Event;
 import com.example.jamboree.model.EventPage;
 import com.example.jamboree.ui.events.EventAdapter;
 import com.example.jamboree.ui.events.EventDetailsFragment;
 
 public class UserEventsFragment extends Fragment {
-
     private LinearLayout contentLayout;
     private LinearLayout loginRequiredLayout;
 
@@ -36,6 +37,7 @@ public class UserEventsFragment extends Fragment {
     private LinearLayoutManager layoutManager;
 
     private SessionManager sessionManager;
+    private FavoriteEventsController favoriteEventsController;
     private UserEventRepository userEventsRepository;
 
     private boolean isLoading = false;
@@ -63,20 +65,25 @@ public class UserEventsFragment extends Fragment {
         try {
             sessionManager = new SessionManager(requireContext());
             userEventsRepository = new UserEventRepository(requireContext());
+            favoriteEventsController = new FavoriteEventsController(requireContext());
         } catch (Exception e) {
             showErrorState("Failed to initialize secure session: " + e.getMessage());
             return;
         }
 
-        eventAdapter = new EventAdapter(event -> {
-            androidx.navigation.NavController navController =
-                androidx.navigation.fragment.NavHostFragment.findNavController(this);
+        eventAdapter = new EventAdapter(
+            event -> {
+                androidx.navigation.NavController navController =
+                    androidx.navigation.fragment.NavHostFragment.findNavController(this);
 
-            navController.navigate(
-                R.id.eventDetailsFragment,
-                EventDetailsFragment.createArgs(event.getId())
-            );
-        });
+                navController.navigate(
+                    R.id.eventDetailsFragment,
+                    EventDetailsFragment.createArgs(event.getId())
+                );
+            },
+            this::toggleFavorite
+        );
+
         layoutManager = new LinearLayoutManager(requireContext());
 
         eventsRecyclerView.setLayoutManager(layoutManager);
@@ -116,6 +123,7 @@ public class UserEventsFragment extends Fragment {
         }
 
         showContentState();
+        loadFavoriteState();
         loadFirstPage();
     }
 
@@ -194,6 +202,71 @@ public class UserEventsFragment extends Fragment {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    private void loadFavoriteState() {
+        favoriteEventsController.loadFavoritesAsync(new FavoriteEventsController.FavoriteStateListener() {
+            @Override
+            public void onFavoritesLoaded(java.util.Map<String, String> favoriteEventMap) {
+                if (!isAdded()) return;
+                requireActivity().runOnUiThread(() -> eventAdapter.setFavoriteEventMap(favoriteEventMap));
+            }
+
+            @Override
+            public void onFavoriteAdded(String eventId, String userEventId) {
+            }
+
+            @Override
+            public void onFavoriteRemoved(String eventId) {
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+
+            @Override
+            public void onAuthenticationRequired() {
+            }
+        });
+    }
+
+    private void toggleFavorite(Event event) {
+        favoriteEventsController.toggleFavoriteAsync(
+            event,
+            false,
+            new FavoriteEventsController.FavoriteStateListener() {
+                @Override
+                public void onFavoritesLoaded(java.util.Map<String, String> favoriteEventMap) {
+                }
+
+                @Override
+                public void onFavoriteAdded(String eventId, String userEventId) {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() ->
+                        eventAdapter.setFavoriteEventMap(favoriteEventsController.getFavoriteEventMap())
+                    );
+                }
+
+                @Override
+                public void onFavoriteRemoved(String eventId) {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() -> {
+                        eventAdapter.setFavoriteEventMap(favoriteEventsController.getFavoriteEventMap());
+                        eventAdapter.removeEventById(eventId);
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                    if (!isAdded()) return;
+                    requireActivity().runOnUiThread(() -> showErrorState(message));
+                }
+
+                @Override
+                public void onAuthenticationRequired() {
+                }
+            }
+        );
     }
 
     private void resetPagingState() {

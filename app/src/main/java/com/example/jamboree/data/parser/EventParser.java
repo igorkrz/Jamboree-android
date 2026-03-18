@@ -87,6 +87,32 @@ public class EventParser {
         );
     }
 
+    public java.util.Map<String, String> parseUserEventRefs(JSONObject root) throws Exception {
+        java.util.Map<String, String> refs = new java.util.HashMap<>();
+
+        JSONArray members = root.optJSONArray("member");
+        if (members == null) {
+            return refs;
+        }
+
+        for (int i = 0; i < members.length(); i++) {
+            JSONObject item = members.getJSONObject(i);
+
+            String userEventId = item.optString("id", "");
+            JSONObject eventObject = item.optJSONObject("event");
+            if (eventObject == null) {
+                continue;
+            }
+
+            String eventId = eventObject.optString("id", "");
+            if (!userEventId.isEmpty() && !eventId.isEmpty()) {
+                refs.put(eventId, userEventId);
+            }
+        }
+
+        return refs;
+    }
+
     private JSONObject unwrapEventObject(JSONObject item) {
         if (item == null) {
             return new JSONObject();

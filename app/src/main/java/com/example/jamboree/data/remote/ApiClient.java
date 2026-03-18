@@ -12,7 +12,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class ApiClient {
-
     private static final String TAG = "ApiClient";
     private static final String BASE_URL = "http://10.0.2.2/api/";
 
@@ -30,6 +29,10 @@ public class ApiClient {
 
     public ApiResponse postJson(String endpoint, JSONObject body, String accessToken) throws Exception {
         return request("POST", endpoint, body, accessToken);
+    }
+
+    public ApiResponse delete(String endpoint, String accessToken) throws Exception {
+        return request("DELETE", endpoint, null, accessToken);
     }
 
     public ApiResponse request(String method, String endpoint, JSONObject body, String accessToken) throws Exception {
@@ -80,6 +83,10 @@ public class ApiClient {
         Log.d(TAG, "HTTP code: " + responseCode);
         Log.d(TAG, "Content-Type: " + contentType);
         Log.d(TAG, "Response body:\n" + bodyText);
+
+        if (bodyText.isEmpty()) {
+            return new ApiResponse(new JSONObject(), contentType, responseCode);
+        }
 
         if (!contentType.contains("application/json")) {
             throw new Exception("Expected JSON-LD but got: " + contentType);

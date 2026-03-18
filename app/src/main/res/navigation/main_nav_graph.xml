@@ -22,7 +22,7 @@
     <fragment
         android:id="@+id/eventDetailsFragment"
         android:name="com.example.jamboree.ui.events.EventDetailsFragment"
-        android:label="Event Details" />
+        android:label="@string/event_details" />
 
     <fragment
         android:id="@+id/loginFragment"

@@ -19,4 +19,6 @@
     <string name="event">Event</string>
     <string name="description">Description</string>
     <string name="choose_an_event">Choose an event</string>
+    <string name="favorite">Favorite</string>
+    <string name="event_details">Event details</string>
 </resources>
