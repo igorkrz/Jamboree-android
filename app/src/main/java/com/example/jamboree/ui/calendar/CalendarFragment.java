@@ -17,6 +17,7 @@ import com.example.jamboree.R;
 import com.example.jamboree.data.local.SessionManager;
 import com.example.jamboree.data.repository.CalendarRepository;
 import com.example.jamboree.model.CalendarEvent;
+import com.example.jamboree.ui.events.EventDetailsFragment;
 import com.kizitonwose.calendar.core.CalendarDay;
 import com.kizitonwose.calendar.core.DayPosition;
 import com.kizitonwose.calendar.core.OutDateStyle;
@@ -153,9 +154,13 @@ public class CalendarFragment extends Fragment {
     private void bindDay(DayViewContainer container, CalendarDay data) {
         LocalDate date = data.getDate();
         container.dayText.setText(String.valueOf(date.getDayOfMonth()));
+
         container.eventLine1.setVisibility(View.GONE);
         container.moreText.setVisibility(View.GONE);
-        container.dayRoot.setClickable(false);
+
+        container.eventLine1.setOnClickListener(null);
+        container.moreText.setOnClickListener(null);
+        container.dayRoot.setOnClickListener(null);
 
         if (data.getPosition() != DayPosition.MonthDate) {
             container.dayText.setAlpha(0.35f);
@@ -180,13 +185,25 @@ public class CalendarFragment extends Fragment {
             return;
         }
 
-        container.dayRoot.setClickable(true);
-        container.eventLine1.setText(events.get(0).getTitle());
+        CalendarEvent firstEvent = events.get(0);
+        container.eventLine1.setText(firstEvent.getTitle());
         container.eventLine1.setVisibility(View.VISIBLE);
 
-        if (events.size() > 1) {
+        if (events.size() == 1) {
+            String eventId = extractEventIdFromUrl(firstEvent.getUrl());
+            if (eventId != null) {
+                container.eventLine1.setOnClickListener(v -> openEventDetails(eventId));
+                container.dayRoot.setOnClickListener(v -> openEventDetails(eventId));
+            }
+        } else {
             container.moreText.setText("+" + (events.size() - 1) + " more");
             container.moreText.setVisibility(View.VISIBLE);
+
+            View.OnClickListener chooserClick = v -> showEventChooser(date, events);
+
+            container.eventLine1.setOnClickListener(chooserClick);
+            container.moreText.setOnClickListener(chooserClick);
+            container.dayRoot.setOnClickListener(chooserClick);
         }
     }
 
@@ -252,6 +269,66 @@ public class CalendarFragment extends Fragment {
     private void openLogin() {
         NavController navController = NavHostFragment.findNavController(this);
         navController.navigate(R.id.loginFragment);
+    }
+
+    private void openEventDetails(String eventId) {
+        NavController navController = NavHostFragment.findNavController(this);
+        navController.navigate(
+            R.id.eventDetailsFragment,
+            EventDetailsFragment.createArgs(eventId)
+        );
+    }
+
+    private void showEventChooser(LocalDate date, List<CalendarEvent> events) {
+        if (!isAdded() || events == null || events.isEmpty()) {
+            return;
+        }
+
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext());
+
+        View sheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_calendar_events, null);
+        dialog.setContentView(sheetView);
+
+        TextView titleTextView = sheetView.findViewById(R.id.titleTextView);
+        androidx.recyclerview.widget.RecyclerView recyclerView = sheetView.findViewById(R.id.eventsRecyclerView);
+
+        titleTextView.setText(String.format("Events on %s", formatChooserDate(date)));
+
+        recyclerView.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(requireContext()));
+        recyclerView.setAdapter(new CalendarEventChoiceAdapter(events, selectedEvent -> {
+            dialog.dismiss();
+
+            String eventId = extractEventIdFromUrl(selectedEvent.getUrl());
+            if (eventId != null) {
+                openEventDetails(eventId);
+            }
+        }));
+
+        dialog.show();
+    }
+
+    private String extractEventIdFromUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return null;
+        }
+
+        String trimmed = url.trim();
+
+        if (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+
+        int lastSlashIndex = trimmed.lastIndexOf('/');
+        if (lastSlashIndex == -1 || lastSlashIndex == trimmed.length() - 1) {
+            return null;
+        }
+
+        return trimmed.substring(lastSlashIndex + 1);
+    }
+
+    private String formatChooserDate(LocalDate date) {
+        return date.getDayOfMonth() + "." + date.getMonthValue() + "." + date.getYear();
     }
 
     private void showLoginRequiredState() {

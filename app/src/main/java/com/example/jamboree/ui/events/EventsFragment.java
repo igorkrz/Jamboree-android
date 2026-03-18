@@ -47,7 +47,15 @@ public class EventsFragment extends Fragment {
         errorTextView = view.findViewById(R.id.errorTextView);
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout);
 
-        eventAdapter = new EventAdapter();
+        eventAdapter = new EventAdapter(event -> {
+            androidx.navigation.NavController navController =
+                androidx.navigation.fragment.NavHostFragment.findNavController(this);
+
+            navController.navigate(
+                R.id.eventDetailsFragment,
+                EventDetailsFragment.createArgs(event.getId())
+            );
+        });
         layoutManager = new LinearLayoutManager(requireContext());
 
         eventsRecyclerView.setLayoutManager(layoutManager);

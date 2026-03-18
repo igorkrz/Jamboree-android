@@ -20,6 +20,11 @@
         android:label="@string/my_events" />
 
     <fragment
+        android:id="@+id/eventDetailsFragment"
+        android:name="com.example.jamboree.ui.events.EventDetailsFragment"
+        android:label="Event Details" />
+
+    <fragment
         android:id="@+id/loginFragment"
         android:name="com.example.jamboree.ui.auth.LoginFragment"
         android:label="@string/login" />

@@ -18,8 +18,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
+    public interface OnEventClickListener {
+        void onEventClick(Event event);
+    }
 
     private final List<Event> events = new ArrayList<>();
+    private final OnEventClickListener onEventClickListener;
+
+    public EventAdapter(OnEventClickListener onEventClickListener) {
+        this.onEventClickListener = onEventClickListener;
+    }
 
     public void replaceEvents(List<Event> newEvents) {
         events.clear();
@@ -49,6 +57,12 @@ public class EventAdapter extends RecyclerView.Adapter<EventViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
         Event event = events.get(position);
+
+        holder.itemView.setOnClickListener(v -> {
+            if (onEventClickListener != null) {
+                onEventClickListener.onEventClick(event);
+            }
+        });
 
         holder.eventNameTextView.setText(event.getName());
         holder.eventDateTextView.setText(String.format("Date: %s", formatDate(event.getHoldingDate())));

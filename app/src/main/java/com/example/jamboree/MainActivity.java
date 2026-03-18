@@ -8,6 +8,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.navigation.NavController;
+import androidx.navigation.NavDestination;
 import androidx.navigation.fragment.NavHostFragment;
 import androidx.navigation.ui.NavigationUI;
 
@@ -43,6 +44,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         navController = navHostFragment.getNavController();
+        navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
+            updateTopBarForDestination(destination);
+        });
 
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigationView);
         NavigationUI.setupWithNavController(bottomNavigationView, navController);
@@ -54,6 +58,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateAuthMenu();
+    }
+
+    private void updateTopBarForDestination(@NonNull NavDestination destination) {
+        if (topAppBar == null) {
+            return;
+        }
+
+        boolean showBackButton = destination.getId() == R.id.eventDetailsFragment || destination.getId() == R.id.loginFragment;
+
+        if (showBackButton) {
+            topAppBar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
+            topAppBar.setNavigationOnClickListener(v -> navController.popBackStack());
+        } else {
+            topAppBar.setNavigationIcon(null);
+            topAppBar.setNavigationOnClickListener(null);
+        }
     }
 
     private boolean onTopBarMenuItemClicked(@NonNull MenuItem item) {

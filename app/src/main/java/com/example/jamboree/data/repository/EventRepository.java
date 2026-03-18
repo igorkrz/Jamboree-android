@@ -3,6 +3,7 @@ package com.example.jamboree.data.repository;
 import com.example.jamboree.data.parser.EventParser;
 import com.example.jamboree.data.remote.ApiClient;
 import com.example.jamboree.data.remote.ApiResponse;
+import com.example.jamboree.model.Event;
 import com.example.jamboree.model.EventPage;
 
 public class EventRepository {
@@ -19,5 +20,16 @@ public class EventRepository {
         }
 
         return eventParser.parseEventPageFromCollection(response.getObject());
+    }
+
+    public Event getEventById(String eventId) throws Exception {
+        String endpoint = EVENT_ENDPOINT + "/" + eventId;
+        ApiResponse response = apiClient.get(endpoint);
+
+        if (!response.isObject()) {
+            throw new Exception("Unexpected event response format.");
+        }
+
+        return eventParser.parseEvent(response.getObject());
     }
 }

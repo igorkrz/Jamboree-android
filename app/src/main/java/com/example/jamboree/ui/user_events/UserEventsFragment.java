@@ -20,6 +20,7 @@ import com.example.jamboree.data.local.SessionManager;
 import com.example.jamboree.data.repository.UserEventRepository;
 import com.example.jamboree.model.EventPage;
 import com.example.jamboree.ui.events.EventAdapter;
+import com.example.jamboree.ui.events.EventDetailsFragment;
 
 public class UserEventsFragment extends Fragment {
 
@@ -67,7 +68,15 @@ public class UserEventsFragment extends Fragment {
             return;
         }
 
-        eventAdapter = new EventAdapter();
+        eventAdapter = new EventAdapter(event -> {
+            androidx.navigation.NavController navController =
+                androidx.navigation.fragment.NavHostFragment.findNavController(this);
+
+            navController.navigate(
+                R.id.eventDetailsFragment,
+                EventDetailsFragment.createArgs(event.getId())
+            );
+        });
         layoutManager = new LinearLayoutManager(requireContext());
 
         eventsRecyclerView.setLayoutManager(layoutManager);
