@@ -12,17 +12,22 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.fragment.NavHostFragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.jamboree.R;
 import com.example.jamboree.data.local.SessionManager;
 import com.example.jamboree.data.repository.CalendarRepository;
 import com.example.jamboree.model.CalendarEvent;
 import com.example.jamboree.ui.events.EventDetailsFragment;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.kizitonwose.calendar.core.CalendarDay;
+import com.kizitonwose.calendar.core.CalendarMonth;
 import com.kizitonwose.calendar.core.DayPosition;
 import com.kizitonwose.calendar.core.OutDateStyle;
 import com.kizitonwose.calendar.view.CalendarView;
 import com.kizitonwose.calendar.view.MonthDayBinder;
+import com.kizitonwose.calendar.view.MonthHeaderFooterBinder;
 import com.kizitonwose.calendar.view.ViewContainer;
 
 import java.text.DateFormatSymbols;
@@ -30,13 +35,19 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class CalendarFragment extends Fragment {
+    private static final String KEY_CURRENT_YEAR = "key_current_year";
+    private static final String KEY_CURRENT_MONTH = "key_current_month";
+    private static final String KEY_SELECTED_DATE = "key_selected_date";
+
     private LocalDate selectedDate = null;
     private LinearLayout contentLayout;
     private LinearLayout loginRequiredLayout;
@@ -104,11 +115,50 @@ public class CalendarFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            int savedYear = savedInstanceState.getInt(KEY_CURRENT_YEAR, -1);
+            int savedMonth = savedInstanceState.getInt(KEY_CURRENT_MONTH, -1);
+            String savedDate = savedInstanceState.getString(KEY_SELECTED_DATE);
+
+            if (savedYear != -1 && savedMonth != -1) {
+                currentMonth = YearMonth.of(savedYear, savedMonth);
+            }
+
+            if (savedDate != null) {
+                try {
+                    selectedDate = LocalDate.parse(savedDate);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        if (currentMonth != null) {
+            outState.putInt(KEY_CURRENT_YEAR, currentMonth.getYear());
+            outState.putInt(KEY_CURRENT_MONTH, currentMonth.getMonthValue());
+        }
+
+        if (selectedDate != null) {
+            outState.putString(KEY_SELECTED_DATE, selectedDate.toString());
+        }
+    }
+
     private void setupCalendar() {
-        currentMonth = YearMonth.now();
+        if (currentMonth == null) {
+            currentMonth = YearMonth.now();
+        }
         YearMonth startMonth = currentMonth.minusMonths(12);
         YearMonth endMonth = currentMonth.plusMonths(12);
         DayOfWeek firstDayOfWeek = DayOfWeek.MONDAY;
+        List<DayOfWeek> daysOfWeek = getDaysOfWeekFromMonday();
 
         monthCalendarView.setDayBinder(new MonthDayBinder<DayViewContainer>() {
             @NonNull
@@ -133,6 +183,27 @@ public class CalendarFragment extends Fragment {
             public void bind(@NonNull DayViewContainer container, @NonNull CalendarDay data) {
                 container.day = data;
                 bindDay(container, data);
+            }
+        });
+
+        monthCalendarView.setMonthHeaderBinder(new MonthHeaderFooterBinder<MonthHeaderViewContainer>() {
+            @NonNull
+            @Override
+            public MonthHeaderViewContainer create(@NonNull View view) {
+                return new MonthHeaderViewContainer(view);
+            }
+
+            @Override
+            public void bind(@NonNull MonthHeaderViewContainer container, @NonNull CalendarMonth data) {
+                for (int i = 0; i < 7; i++) {
+                    if (container.dayTitles[i] != null) {
+                        container.dayTitles[i].setText(
+                            daysOfWeek.get(i).getDisplayName(
+                                TextStyle.SHORT,
+                                Locale.getDefault()
+                            ));
+                    }
+                }
             }
         });
 
@@ -284,18 +355,17 @@ public class CalendarFragment extends Fragment {
             return;
         }
 
-        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
-                new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext());
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
 
         View sheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_calendar_events, null);
         dialog.setContentView(sheetView);
 
         TextView titleTextView = sheetView.findViewById(R.id.titleTextView);
-        androidx.recyclerview.widget.RecyclerView recyclerView = sheetView.findViewById(R.id.eventsRecyclerView);
+        RecyclerView recyclerView = sheetView.findViewById(R.id.eventsRecyclerView);
 
         titleTextView.setText(String.format("Events on %s", formatChooserDate(date)));
 
-        recyclerView.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(requireContext()));
+        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(new CalendarEventChoiceAdapter(events, selectedEvent -> {
             dialog.dismiss();
 
@@ -325,6 +395,18 @@ public class CalendarFragment extends Fragment {
         }
 
         return trimmed.substring(lastSlashIndex + 1);
+    }
+
+    private List<DayOfWeek> getDaysOfWeekFromMonday() {
+        List<DayOfWeek> days = new ArrayList<>();
+        days.add(DayOfWeek.MONDAY);
+        days.add(DayOfWeek.TUESDAY);
+        days.add(DayOfWeek.WEDNESDAY);
+        days.add(DayOfWeek.THURSDAY);
+        days.add(DayOfWeek.FRIDAY);
+        days.add(DayOfWeek.SATURDAY);
+        days.add(DayOfWeek.SUNDAY);
+        return days;
     }
 
     private String formatChooserDate(LocalDate date) {
@@ -373,7 +455,7 @@ public class CalendarFragment extends Fragment {
         public final TextView eventLine1;
         public final TextView moreText;
 
-        public DayViewContainer(@NonNull View view, @NonNull java.util.function.Consumer<CalendarDay> onClick) {
+        public DayViewContainer(@NonNull View view, @NonNull Consumer<CalendarDay> onClick) {
             super(view);
             dayRoot = view.findViewById(R.id.dayRoot);
             dayText = view.findViewById(R.id.dayText);
@@ -385,6 +467,21 @@ public class CalendarFragment extends Fragment {
                     onClick.accept(day);
                 }
             });
+        }
+    }
+
+    public static class MonthHeaderViewContainer extends ViewContainer {
+        public final TextView[] dayTitles = new TextView[7];
+
+        public MonthHeaderViewContainer(@NonNull View view) {
+            super(view);
+            dayTitles[0] = view.findViewById(R.id.headerDay1);
+            dayTitles[1] = view.findViewById(R.id.headerDay2);
+            dayTitles[2] = view.findViewById(R.id.headerDay3);
+            dayTitles[3] = view.findViewById(R.id.headerDay4);
+            dayTitles[4] = view.findViewById(R.id.headerDay5);
+            dayTitles[5] = view.findViewById(R.id.headerDay6);
+            dayTitles[6] = view.findViewById(R.id.headerDay7);
         }
     }
 }
